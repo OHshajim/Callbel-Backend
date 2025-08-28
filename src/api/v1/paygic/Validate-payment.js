@@ -118,40 +118,42 @@ const validatePayment = async (req, res, next) => {
 
     if (findUser.transactionHistory.length > 0) {
       updateHistory = [
-        ...findUser.transactionHistory,
-        {
-          paygic,
-          amount: paymentStatus.data.amount,
-          paymentMethod: "Paygic",
-          status: "Completed",
-          author: {
-            name: findUser.name,
-            email: findUser.email,
-            id: findUser.id,
+          ...findUser.transactionHistory,
+          {
+              paygic,
+              amount: paymentStatus.data.amount,
+              paymentMethod: "Paygic",
+              status: "Completed",
+              author: {
+                  name: findUser.name,
+                  email: findUser.email,
+                  id: findUser.id,
+                  address: findUser.address || "",
+              },
+              planId: subId,
+              plan: mainPlan.name,
+              ration: mainPlan.duration,
+              planMinute: mainPlan.minute,
           },
-          planId: subId,
-          plan: mainPlan.name,
-          ration: mainPlan.duration,
-          planMinute: mainPlan.minute,
-        },
       ];
     } else {
       updateHistory = [
-        {
-          paygic,
-          amount: paymentStatus.data.amount,
-          paymentMethod: "Paygic",
-          status: "Completed",
-          author: {
-            name: findUser.name,
-            email: findUser.email,
-            id: findUser.id,
+          {
+              paygic,
+              amount: paymentStatus.data.amount,
+              paymentMethod: "Paygic",
+              status: "Completed",
+              author: {
+                  name: findUser.name,
+                  email: findUser.email,
+                  id: findUser.id,
+                  address: findUser.address || "",
+              },
+              planId: subId,
+              plan: mainPlan.name,
+              ration: mainPlan.duration,
+              planMinute: mainPlan.minute,
           },
-          planId: subId,
-          plan: mainPlan.name,
-          ration: mainPlan.duration,
-          planMinute: mainPlan.minute,
-        },
       ];
     }
     const update = {
