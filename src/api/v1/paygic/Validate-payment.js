@@ -132,7 +132,7 @@ const validatePayment = async (req, res, next) => {
               },
               planId: subId,
               plan: mainPlan.name,
-              ration: mainPlan.duration,
+              planDuration: mainPlan.duration,
               planMinute: mainPlan.minute,
           },
       ];
@@ -151,7 +151,7 @@ const validatePayment = async (req, res, next) => {
               },
               planId: subId,
               plan: mainPlan.name,
-              ration: mainPlan.duration,
+              planDuration: mainPlan.duration,
               planMinute: mainPlan.minute,
           },
       ];
