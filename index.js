@@ -1,5 +1,47 @@
 const { createServer } = require("http");
 const { Server } = require("socket.io");
+const admin = require("firebase-admin");
+require("dotenv").config();
+
+if (process.env.PROJECT_ID && process.env.CLIENT_EMAIL && process.env.PRIVATE_KEY) {
+    try {
+        admin.initializeApp({
+            credential: admin.credential.cert({
+                type: process.env.TYPE,
+                project_id: process.env.PROJECT_ID,
+                private_key_id: process.env.PRIVATE_KEY_ID,
+                private_key: process.env.PRIVATE_KEY?.replace(/\\n/g, "\n"),
+                client_email: process.env.CLIENT_EMAIL,
+                client_id: process.env.CLIENT_ID,
+                auth_uri: process.env.AUTH_URI,
+                token_uri: process.env.TOKEN_URI,
+                auth_provider_x509_cert_url: process.env.AUTH_PROVIDER_CERT_URL,
+                client_x509_cert_url: process.env.CLIENT_CERT_URL,
+                universe_domain: process.env.UNIVERSE_DOMAIN,
+            }),
+        });
+        console.log(
+            "Firebase Admin initialized with local serviceAccountKey.json"
+        );
+    } catch (err) {
+        console.error(
+            "Failed to initialize Firebase Admin with serviceAccountKey.json:",
+            err
+        );
+    }
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  // If GOOGLE_APPLICATION_CREDENTIALS is set, admin SDK will use the application default credentials
+  try {
+    admin.initializeApp();
+    console.log("Firebase Admin initialized using GOOGLE_APPLICATION_CREDENTIALS");
+  } catch (err) {
+    console.error("Failed to initialize Firebase Admin using application default credentials:", err);
+  }
+} else {
+  console.warn(
+    "Firebase service account not found and GOOGLE_APPLICATION_CREDENTIALS not set. Firebase Admin is NOT initialized. FCM and other admin features will fail until configured."
+  );
+}
 const cors = require("cors");
 const express = require("express");
 require("dotenv").config();
@@ -31,15 +73,41 @@ io.on("connection", (socket) => {
   });
 
   // Guest calls registered user
-  socket.on("guest-call", ({ from, to, roomName }) => {
+  socket.on("guest-call", async ({ from, to, roomName, fcmToken }) => {
     const target = userSockets.find((entry) => entry.id === to);
 
     if (target) {
-      // Notify registered user about incoming call
+      // Notify registered user about incoming call via Socket.IO
       io.to(target.socketId).emit("incoming-call", {
-        from: { name: from, guest: true, socketId: socket.id }, // include guest socketId
+        from: { name: from, guest: true, socketId: socket.id },
         roomName,
       });
+
+      // FCM notification
+      if (fcmToken) {
+        const message = {
+          token: fcmToken,
+          data: {
+            type: "incoming_call",
+            caller_name: String(from),
+            room_id: String(roomName),
+          },
+          android: {
+            notification: {
+              title: "Incoming Call",
+              body: `${from} is calling you`,
+              sound: "default",
+            },
+          },
+        };
+
+        try {
+          await admin.messaging().send(message);
+          console.log("FCM Notification sent successfully");
+        } catch (error) {
+          console.error("FCM Error:", error);
+        }
+      }
     }
   });
 
@@ -94,25 +162,61 @@ const userRoutes = require("./src/routes/auth/index.js");
 const liveKit = require("./src/routes/liveKit/index.js");
 const users = require("./src/routes/users/index.js");
 const paygic = require("./src/routes/paygic/index.js");
-const admin = require("./src/routes/admin/index.js");
+const adminRoutes = require("./src/routes/admin/index.js");
 
 app.use("/v1/api/auth", userRoutes);
 app.use("/v1/api/liveKit", liveKit);
 app.use("/v1/api/users", users);
 app.use("/v1/api/paygic", paygic);
-app.use("/v1/api/admin", admin);
+app.use("/v1/api/admin", adminRoutes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to the virtual callbell Call Backend");
 });
 
+// Start HTTP server with retry on EADDRINUSE (try next ports)
+const startServerWithRetry = (startPort, maxRetries = 5) => {
+  let attempts = 0;
+
+  const tryListen = (portToTry) => {
+    // Use once() so listeners don't accumulate between retries
+    httpServer.once("error", (err) => {
+      if (err && err.code === "EADDRINUSE") {
+        if (attempts < maxRetries) {
+          console.warn(`Port ${portToTry} in use, trying ${portToTry + 1}...`);
+          attempts += 1;
+          // small delay before retrying to allow OS to settle
+          setTimeout(() => tryListen(portToTry + 1), 200);
+        } else {
+          console.error(
+            `Port ${startPort} and next ${maxRetries} ports are in use. Exiting.`
+          );
+          process.exit(1);
+        }
+      } else {
+        console.error("Server error:", err);
+        process.exit(1);
+      }
+    });
+
+    httpServer.once("listening", () => {
+      const addr = httpServer.address();
+      const listeningPort = typeof addr === "object" ? addr.port : addr;
+      console.log("listening to port", listeningPort);
+    });
+
+    httpServer.listen(portToTry);
+  };
+
+  tryListen(startPort);
+};
+
 const main = async () => {
   console.log("Called");
   await connectDB();
 
-  httpServer.listen(port, () => {
-    console.log("listening to port ", port);
-  });
+  // Start server with retries if port is already in use
+  startServerWithRetry(port, 10);
 };
 
 main();
