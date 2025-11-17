@@ -82,31 +82,29 @@ io.on("connection", (socket) => {
         from: { name: from, guest: true, socketId: socket.id },
         roomName,
       });
+    }
 
-      // FCM notification
-      if (fcmToken) {
-        const message = {
-          token: fcmToken,
-          data: {
-            type: "incoming_call",
-            caller_name: String(from),
-            room_id: String(roomName),
-          },
-          android: {
-            notification: {
-              title: "Incoming Call",
-              body: `${from} is calling you`,
-              sound: "default",
-            },
-          },
-        };
+    // Always send FCM notification (even if user is online, for app-closed state)
+    if (fcmToken) {
+      const message = {
+        token: fcmToken,
+        data: {
+          type: "incoming_call",
+          caller_name: String(from),
+          room_id: String(roomName),
+          caller_socket_id: String(socket.id),
+          caller_id: String(to),
+        },
+        android: {
+          priority: "high",
+        },
+      };
 
-        try {
-          await admin.messaging().send(message);
-          console.log("FCM Notification sent successfully");
-        } catch (error) {
-          console.error("FCM Error:", error);
-        }
+      try {
+        await admin.messaging().send(message);
+        console.log("✅ FCM Notification sent successfully");
+      } catch (error) {
+        console.error("❌ FCM Error:", error);
       }
     }
   });
