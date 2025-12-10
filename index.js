@@ -57,7 +57,7 @@ const io = new Server(httpServer, {
   cors: { origin: "*" },
 });
 
-let userSockets = []; // Move outside, so it's shared across all connections
+let userSockets = []; // Move outside, so it's shared across all connection
 
 io.on("connection", (socket) => {
   socket.on("register", (userId) => {
