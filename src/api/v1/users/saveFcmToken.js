@@ -11,11 +11,8 @@ const saveFcmToken = async (req, res) => {
       });
     }
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { fcmToken },
-      { new: true }
-    );
+    // Simply save/update the fcmToken field
+    const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({
@@ -23,6 +20,10 @@ const saveFcmToken = async (req, res) => {
         message: "User not found",
       });
     }
+
+    // Save the token (this will overwrite if already exists)
+    user.fcmToken = fcmToken;
+    await user.save();
 
     res.json({
       success: true,
