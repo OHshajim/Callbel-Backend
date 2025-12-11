@@ -27,6 +27,7 @@ const getMyData = async (req, res, next) => {
         id: result.id,
         transactionHistory: result.transactionHistory,
         subscription: result.subscription,
+        fcmToken: result.fcmToken,
       },
     });
   } catch (error) {

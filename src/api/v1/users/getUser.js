@@ -25,6 +25,7 @@ const getUserData = async (req, res, next) => {
         phone: result.phone,
         address: result.address,
         id: result.id,
+        fcmToken: result.fcmToken,
       },
     });
   } catch (error) {
